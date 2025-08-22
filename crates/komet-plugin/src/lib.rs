@@ -1,3 +1,5 @@
+use std::vec;
+
 use ciborium_io::Write as _;
 use ciborium_ll::{Decoder, Encoder, Header};
 use rustfft::{FftDirection, FftPlanner};
@@ -80,6 +82,7 @@ pub fn histogram(input: &[u8]) -> Result<Vec<u8>, String> {
                 Header::Array(Some(len)) => read::read_float_array(&mut decoder, len)?,
                 _ => return Err(String::from("Bad input")),
             };
+
 
             let edges = match decoder.pull().unwrap() {
                 Header::Array(Some(len)) => read::read_float_array(&mut decoder, len)?,
@@ -216,6 +219,41 @@ pub fn boxplot_alt(input: &[u8]) -> Result<Vec<u8>, String> {
         .collect();
 
     Ok(p[..].concat())
+}
+
+#[wasm_func]
+pub fn histogram_alt(bins: &[u8], values: &[u8]) -> Result<Vec<u8>, String> {
+    let values: Vec<f64> = values
+        .chunks_exact(8)
+        .map(|bytes| f64::from_be_bytes(bytes.try_into().expect("msg")))
+        .collect();
+    let bins: Vec<i64> = bins
+        .chunks_exact(8)
+        .map(|bytes| i64::from_be_bytes(bytes.try_into().expect("msg")))
+        .collect();
+
+    let num_bins = bins[0];
+
+    let edges: Vec<f64> = {
+        let min = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let max = values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+
+        let step = (max - min) / (num_bins as f64);
+        (0..num_bins + 1).map(|x| min + (x as f64) * step).collect()
+    };
+
+    let counts = komet::histogram(&values, &edges);
+
+    let counts_binary: Vec<[u8; 8]> = counts
+        .iter()
+        .map(|value| u64::to_be_bytes(*value))
+        .collect();
+    // let edges_binary: Vec<[u8; 8]> = counts
+    //     .iter()
+    //     .map(|value| f64::to_be_bytes(*value))
+    //     .collect();
+
+    Ok(counts_binary[..].concat())
 }
 
 fn fft_impl(input: &[u8], direction: FftDirection) -> Result<Vec<u8>, String> {
