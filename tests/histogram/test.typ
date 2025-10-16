@@ -8,7 +8,7 @@
 
 #assert.eq(
   histogram(range(10), bins: 3),
-  (counts: (3, 3, 3), edges: (0, 3, 6, 9)),
+  (counts: (3, 3, 4), edges: (0, 3, 6, 9)),
 )
 
 

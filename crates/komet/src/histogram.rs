@@ -6,7 +6,7 @@ pub fn histogram(values: &[f64], edges: &[f64]) -> Vec<u64> {
         }
 
         for (i, &edge) in edges[1..].iter().enumerate() {
-            if value < edge || (value == edge && i == values.len() - 2) {
+            if value < edge || (value == edge && i == edges.len() - 2) {
                 counts[i] += 1;
                 break;
             }
@@ -28,5 +28,12 @@ mod tests {
     #[test]
     fn test_upper_edge() {
         assert_eq!(histogram(&[0., 2., 4.], &[0., 2., 4.]), [1, 2]);
+    }
+    #[test]
+    fn test_different_lengths() {
+        assert_eq!(
+            histogram(&[1.0, 2.0, 3.0], &[1.0, 1.666, 2.3333, 3.0]),
+            [1, 1, 1]
+        );
     }
 }
