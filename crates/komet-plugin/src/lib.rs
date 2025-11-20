@@ -309,3 +309,71 @@ pub fn thomas_algorithm(a: &[u8], b: &[u8]) -> Result<Vec<u8>, String> {
 
     Ok(output)
 }
+
+#[wasm_func]
+pub fn kde(input: &[u8]) -> Result<Vec<u8>, String> {
+    let mut decoder = Decoder::from(input);
+
+    match decoder.pull().unwrap() {
+        Header::Array(Some(len)) => {
+            let values = match decoder.pull().unwrap() {
+                Header::Array(Some(len)) => read::read_float_array(&mut decoder, len)?,
+                _ => return Err(String::from("Bad input for values")),
+            };
+
+            // Read bandwidth (can be negative to indicate auto)
+            let bandwidth_val = match decoder.pull().unwrap() {
+                Header::Float(bw) => bw,
+                Header::Negative(n) => n as f64,
+                _ => return Err(String::from("Bad bandwidth input")),
+            };
+            let bandwidth = if bandwidth_val < 0.0 { None } else { Some(bandwidth_val) };
+
+            // Read num_points
+            let num_points = match decoder.pull().unwrap() {
+                Header::Positive(n) => n as usize,
+                _ => return Err(String::from("Bad num_points input")),
+            };
+
+            // Read x_min (negative indicates None)
+            let x_min_val = match decoder.pull().unwrap() {
+                Header::Float(x) => x,
+                Header::Negative(n) => n as f64,
+                _ => return Err(String::from("Bad x_min input")),
+            };
+            let x_min = if x_min_val == f64::NEG_INFINITY { None } else { Some(x_min_val) };
+
+            // Read x_max (negative infinity indicates None)
+            let x_max_val = match decoder.pull().unwrap() {
+                Header::Float(x) => x,
+                Header::Positive(n) => n as f64,
+                _ => return Err(String::from("Bad x_max input")),
+            };
+            let x_max = if x_max_val == f64::INFINITY { None } else { Some(x_max_val) };
+
+            let kde_result = komet::kde(&values, bandwidth, num_points, x_min, x_max);
+
+            let mut output = Vec::<u8>::new();
+            let mut encoder = Encoder::from(&mut output);
+            
+            // Write the structure
+            encoder.push(Header::Map(Some(2))).unwrap();
+
+            encoder.text("x", None).unwrap();
+            encoder.push(Header::Array(Some(kde_result.x.len()))).unwrap();
+            for x in kde_result.x {
+                encoder.push(Header::Float(x)).unwrap();
+            }
+
+            encoder.text("y", None).unwrap();
+            encoder.push(Header::Array(Some(kde_result.y.len()))).unwrap();
+            for y in kde_result.y {
+                encoder.push(Header::Float(y)).unwrap();
+            }
+
+            encoder.flush().unwrap();
+            Ok(output)
+        }
+        _ => Err(String::from("Expected an array of inputs")),
+    }
+}

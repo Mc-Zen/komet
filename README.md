@@ -17,6 +17,7 @@ In particular, this package supercharges the plotting package [Lilaq](https://li
 Currently, the following functions are available:
 - [`komet.histogram`](#histogram)
 - [`komet.boxplot`](#boxplot)
+- [`komet.kde`](#kde)
 - [`komet.fft`](#fft)
 - [`komet.ifft`](#ifft)
 - [`komet.contour`](#contour)
@@ -69,6 +70,41 @@ Computes the statistics needed to generate a box plot, including
 - an array of `outliers`. 
 
 All of these values are returned together in form of a dictionary. 
+
+
+
+---
+### KDE
+```typ
+#komet.kde(
+    data: array,
+    bandwidth: auto | float = auto,
+    num-points: int = 100,
+    x-min: auto | float = auto,
+    x-max: auto | float = auto
+) -> dictionary
+```
+Computes Kernel Density Estimation (KDE) for the given data using a Gaussian kernel. 
+This is useful for visualizing distributions, particularly in violin plots.
+
+The function returns a dictionary with keys:
+- `x`: array of x-coordinates where the density was evaluated
+- `y`: array of corresponding density values
+
+Parameters:
+- `data`: An array of numerical values to compute the density for
+- `bandwidth`: The bandwidth of the Gaussian kernel. If `auto`, uses Scott's rule (default). 
+  Larger values produce smoother curves.
+- `num-points`: Number of points to evaluate the density at (default: 100)
+- `x-min`: Minimum x value for evaluation. If `auto`, uses data min - 3×bandwidth
+- `x-max`: Maximum x value for evaluation. If `auto`, uses data max + 3×bandwidth
+
+Example:
+```typ
+#let result = komet.kde((1, 2, 3, 4, 5))
+// result.x contains x coordinates
+// result.y contains density values at those x coordinates
+```
 
 
 
