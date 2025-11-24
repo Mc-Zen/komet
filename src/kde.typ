@@ -42,7 +42,7 @@
   // Convert x-max: auto becomes positive infinity
   let xmax = if x-max == auto { calc.inf } else { x-max }
   
-  let result = cbor.decode(komet-plugin.kde(
+  let result = cbor(komet-plugin.kde(
     cbor.encode((data, bw, num-points, xmin, xmax))
   ))
   
