@@ -338,7 +338,7 @@ pub fn kde(input: &[u8]) -> Result<Vec<u8>, String> {
                 _ => return Err(String::from("Bad num_points input")),
             };
 
-            // Read x_min (negative infinity indicates None)
+            // Read x_min (negative infinity indicates auto)
             let x_min_val = match decoder.pull().unwrap() {
                 Header::Float(x) => x,
                 _ => return Err(String::from("Bad x_min input")),
@@ -349,7 +349,7 @@ pub fn kde(input: &[u8]) -> Result<Vec<u8>, String> {
                 Some(x_min_val)
             };
 
-            // Read x_max (positive infinity indicates None)
+            // Read x_max (positive infinity indicates auto)
             let x_max_val = match decoder.pull().unwrap() {
                 Header::Float(x) => x,
                 _ => return Err(String::from("Bad x_max input")),
