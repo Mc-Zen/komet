@@ -2,7 +2,7 @@
 
 ---
 
-[![Typst Package](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMc-Zen%2Fkomet%2Fv0.1.0%2Ftypst.toml&query=%24.package.version&prefix=v&logo=typst&label=package&color=239DAD)](https://typst.app/universe/package/komet)
+[![Typst Package](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMc-Zen%2Fkomet%2Fv0.2.0%2Ftypst.toml&query=%24.package.version&prefix=v&logo=typst&label=package&color=239DAD)](https://typst.app/universe/package/komet)
 [![ci](https://github.com/Mc-Zen/komet/actions/workflows/ci.yml/badge.svg)](https://github.com/Mc-Zen/komet/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/Mc-Zen/komet/blob/main/LICENSE)
 
@@ -175,3 +175,13 @@ See https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm
 for more information.
 
 The expected format of the matrix is an array of arrays, in row-major order.
+
+
+## Changelog
+
+### 0.2.0
+- Added `kde` function (thanks to @koole). 
+- Fixed a bug with `histogram` where the last value was not binned. 
+
+### 0.1.0
+- Added `fft`, `ifft`, `boxplot`, `thomas-algorithm`, `histogram`, and `contour`. 
