@@ -180,10 +180,141 @@ fn group_segments(mut segments: Vec<(Point, Point)>) -> Vec<Vec<Point>> {
     cycles
 }
 
-type ContourLine = Vec<Point>; // A single contour line.
-type Contour = Vec<ContourLine>; // A collection of contour lines making up a contour.
+pub type ContourLine = Vec<Point>; // A single contour line.
 
-fn single_contour(x: &[f64], y: &[f64], z: &[f64], level: f64, z_range: f64) -> Contour {
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LabelPosition {
+    pub x: f64,
+    pub y: f64,
+    pub angle: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Contour {
+    pub lines: Vec<ContourLine>,
+    pub label: Option<LabelPosition>,
+}
+
+fn point_at_distance(line: &[Point], distances: &[f64], distance: f64) -> Point {
+    if distance <= 0.0 {
+        return line[0];
+    }
+    if distance >= *distances.last().unwrap() {
+        return *line.last().unwrap();
+    }
+
+    let end = distances.partition_point(|&d| d < distance);
+    let start = end - 1;
+    let ratio = (distance - distances[start]) / (distances[end] - distances[start]);
+    line[start]
+        + Point::new(
+            ratio * (line[end].x - line[start].x),
+            ratio * (line[end].y - line[start].y),
+            ratio * (line[end].z - line[start].z),
+        )
+}
+
+fn slice_line(line: &[Point], distances: &[f64], start: f64, end: f64) -> Vec<Point> {
+    if end <= start {
+        return Vec::new();
+    }
+
+    let mut points = vec![point_at_distance(line, distances, start)];
+    for (point, &distance) in line.iter().zip(distances) {
+        if start < distance && distance < end {
+            points.push(*point);
+        }
+    }
+    points.push(point_at_distance(line, distances, end));
+    if points.len() >= 2 {
+        points
+    } else {
+        Vec::new()
+    }
+}
+
+fn find_label_position(
+    lines: &[ContourLine],
+    label_length: f64,
+) -> Option<(usize, f64, f64, LabelPosition)> {
+    let label_length = label_length.abs();
+    if !label_length.is_finite() || label_length == 0.0 {
+        return None;
+    }
+    let half_length = label_length / 2.0;
+    let mut best: Option<(usize, f64, f64, f64, LabelPosition)> = None;
+
+    for (line_index, line) in lines.iter().enumerate() {
+        if line.len() < 2 {
+            continue;
+        }
+
+        let mut distances = Vec::with_capacity(line.len());
+        distances.push(0.0);
+        for points in line.windows(2) {
+            let dx = points[1].x - points[0].x;
+            let dy = points[1].y - points[0].y;
+            distances.push(distances.last().unwrap() + dx.hypot(dy));
+        }
+        let total_length = *distances.last().unwrap();
+        if total_length < label_length || total_length == 0.0 {
+            continue;
+        }
+
+        let first_center = half_length;
+        let last_center = total_length - half_length;
+        let mut centers = vec![(first_center + last_center) / 2.0];
+        for distance in &distances {
+            centers.push(distance.clamp(first_center, last_center));
+        }
+        for pair in distances.windows(2) {
+            centers.push(((pair[0] + pair[1]) / 2.0).clamp(first_center, last_center));
+        }
+
+        for center in centers {
+            let start = center - half_length;
+            let end = center + half_length;
+            let start_point = point_at_distance(line, &distances, start);
+            let end_point = point_at_distance(line, &distances, end);
+            let chord_length = (end_point.x - start_point.x).hypot(end_point.y - start_point.y);
+            let straightness = chord_length / label_length;
+            let angle = (end_point.y - start_point.y)
+                .atan2(end_point.x - start_point.x)
+                .to_degrees();
+            let angle = if angle > 90.0 {
+                angle - 180.0
+            } else if angle < -90.0 {
+                angle + 180.0
+            } else {
+                angle
+            };
+            let label = LabelPosition {
+                x: point_at_distance(line, &distances, center).x,
+                y: point_at_distance(line, &distances, center).y,
+                angle,
+            };
+
+            let is_better = match &best {
+                None => true,
+                Some((_, _, _, best_straightness, _)) => straightness > *best_straightness,
+            };
+            if is_better {
+                best = Some((line_index, start, end, straightness, label));
+            }
+        }
+    }
+
+    best.map(|(line_index, start, end, _, label)| (line_index, start, end, label))
+}
+
+fn single_contour(
+    x: &[f64],
+    y: &[f64],
+    z: &[f64],
+    level: f64,
+    z_range: f64,
+    label_length: f64,
+) -> Contour {
     assert_eq!(x.len() * y.len(), z.len());
     let cols = x.len();
     let mut blocks = Vec::<(usize, usize)>::new();
@@ -221,7 +352,32 @@ fn single_contour(x: &[f64], y: &[f64], z: &[f64], level: f64, z_range: f64) -> 
             acc.extend(x);
             acc
         });
-    group_segments(segments)
+    let mut lines = group_segments(segments);
+    let label = if label_length != 0.0 {
+        find_label_position(&lines, label_length).map(|(line_index, start, end, label)| {
+            let line = lines.remove(line_index);
+            let mut distances = Vec::with_capacity(line.len());
+            distances.push(0.0);
+            for points in line.windows(2) {
+                distances.push(
+                    distances.last().unwrap()
+                        + (points[1].x - points[0].x).hypot(points[1].y - points[0].y),
+                );
+            }
+            let before = slice_line(&line, &distances, 0.0, start);
+            let after = slice_line(&line, &distances, end, *distances.last().unwrap());
+            if !before.is_empty() {
+                lines.push(before);
+            }
+            if !after.is_empty() {
+                lines.push(after);
+            }
+            label
+        })
+    } else {
+        None
+    };
+    Contour { lines, label }
 }
 
 /// Generates contours from intersecting a function on a 2d rectangular mesh
@@ -235,10 +391,20 @@ fn single_contour(x: &[f64], y: &[f64], z: &[f64], level: f64, z_range: f64) -> 
 ///  ...
 /// )
 /// ```
-pub fn contour(x: &[f64], y: &[f64], z: &[f64], levels: &[f64]) -> Vec<Contour> {
+pub fn contour(
+    x: &[f64],
+    y: &[f64],
+    z: &[f64],
+    levels: &[f64],
+    label_lengths: &[f64],
+) -> Vec<Contour> {
+    // assert_eq!(levels.len(), label_lengths.len());
     levels
         .iter()
-        .map(|&level| single_contour(x, y, z, level, max(z) - min(z)))
+        .zip(label_lengths.iter())
+        .map(|(&level, &label_length)| {
+            single_contour(x, y, z, level, max(z) - min(z), label_length)
+        })
         .collect()
 }
 
@@ -246,8 +412,47 @@ pub fn contour(x: &[f64], y: &[f64], z: &[f64], levels: &[f64]) -> Vec<Contour> 
 mod tests {
     use super::*;
 
-    fn debug_contour(z: [f64; 4], level: f64) -> Contour {
-        single_contour(&[0., 1.], &[0., 1.], &z, level, max(&z) - min(&z))
+    fn debug_contour(z: [f64; 4], level: f64) -> Vec<ContourLine> {
+        single_contour(&[0., 1.], &[0., 1.], &z, level, max(&z) - min(&z), 0.0).lines
+    }
+
+    #[test]
+    fn test_xy_different_sizes() {
+        let _contour = single_contour(&[0., 1., 2.], &[0., 1.], &[3., 4., 7., 0., 2., 1.], 0.4, 7., 0.0);
+    }
+
+    #[test]
+    fn test_contour_label_position() {
+        let contour = single_contour(&[0., 4.], &[0., 1.], &[1., 1., -1., -1.], 0., 2., 2.);
+        assert_eq!(
+            contour.label,
+            Some(LabelPosition {
+                x: 2.,
+                y: 0.5,
+                angle: 0.,
+            })
+        );
+        assert_eq!(contour.lines.len(), 2);
+        assert!(find_label_position(&contour.lines, 3.).is_none());
+
+        let unlabeled = single_contour(&[0., 4.], &[0., 1.], &[1., 1., -1., -1.], 0., 2., 0.);
+        assert_eq!(unlabeled.label, None);
+        assert_eq!(unlabeled.lines.len(), 1);
+
+        let too_long = single_contour(&[0., 4.], &[0., 1.], &[1., 1., -1., -1.], 0., 2., 5.);
+        assert_eq!(too_long.label, None);
+        assert_eq!(too_long.lines.len(), 1);
+    }
+
+    #[test]
+    fn test_contour_label_angle() {
+        let position =
+            find_label_position(&[vec![Point::new(0., 0., 0.), Point::new(3., 4., 0.)]], 5.)
+                .unwrap()
+                .3;
+        assert_eq!(position.x, 1.5);
+        assert_eq!(position.y, 2.);
+        assert!((position.angle - 53.13010235415598).abs() < 1e-12);
     }
 
     #[test]
