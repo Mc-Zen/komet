@@ -11,7 +11,8 @@
 /// - or a function that takes an `x` and a `y` value and returns a 
 ///   corresponding `z` coordinate. 
 /// 
-/// The input x and y arrays need to be sorted.
+/// The input x and y arrays need to be monotonically sorted, either ascending
+/// or descending.
 /// 
 /// The return value is a dictionary with the keys
 /// - `contours`: An array of contours for each level
@@ -65,6 +66,10 @@
   assert(
     label-lengths.len() == levels.len(),
     message: "The number of label-lengths does not match the number of levels"
+  )
+  let flattened-z = z.flatten()
+  assert(
+    x.len() * y.len() == flattened-z.len()
   )
 
   let data = cbor.encode((

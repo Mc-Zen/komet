@@ -331,8 +331,9 @@ fn single_contour(
     let mut blocks = Vec::<(usize, usize)>::new();
 
     let x_range = x.last().unwrap() - x.first().unwrap();
+    let y_range = y.last().unwrap() - y.first().unwrap();
     let z_eps = 1e-6 * z_range;
-    let x_eps = 1e-17 * x_range;
+    let x_eps = 1e-17 * x_range.abs() * x_range.signum() * y_range.signum();
 
     for i in 0..x.len() - 1 {
         for j in 0..y.len() - 1 {
@@ -512,6 +513,54 @@ mod tests {
         assert_eq!(position.x, 1.5);
         assert_eq!(position.y, 2.);
         assert!((position.angle - 53.13010235415598).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_contour_supports_ascending_and_descending_axes() {
+        let mut reference = None;
+        for x_descending in [false, true] {
+            for y_descending in [false, true] {
+                let x = if x_descending { [1., 0.] } else { [0., 1.] };
+                let y = if y_descending { [1., 0.] } else { [0., 1.] };
+                let z: Vec<_> = y
+                    .iter()
+                    .flat_map(|&y| x.iter().map(move |&x| (2. * x - 1.) * (2. * y - 1.)))
+                    .collect();
+                let contour = single_contour(&x, &y, &z, 0., 2., 0., &[]);
+                let mut edges: Vec<_> = contour
+                    .lines
+                    .iter()
+                    .flat_map(|line| line.windows(2))
+                    .map(|edge| {
+                        let first = (edge[0].x, edge[0].y);
+                        let second = (edge[1].x, edge[1].y);
+                        if first
+                            .0
+                            .total_cmp(&second.0)
+                            .then(first.1.total_cmp(&second.1))
+                            .is_gt()
+                        {
+                            (second, first)
+                        } else {
+                            (first, second)
+                        }
+                    })
+                    .collect();
+                edges.sort_by(|a, b| {
+                    a.0 .0
+                        .total_cmp(&b.0 .0)
+                        .then(a.0 .1.total_cmp(&b.0 .1))
+                        .then(a.1 .0.total_cmp(&b.1 .0))
+                        .then(a.1 .1.total_cmp(&b.1 .1))
+                });
+
+                if let Some(reference) = &reference {
+                    assert_eq!(&edges, reference);
+                } else {
+                    reference = Some(edges);
+                }
+            }
+        }
     }
 
     #[test]
