@@ -19,10 +19,10 @@
 ///   - where each contour consists of an array of contour lines (there can be 
 ///     more than one disjoint curve per level), 
 ///   - where each contour line comprises a set of vertices `(x, y)` making up the curve.
-/// - `labels`: An array of label positions for each level. Each label is either
-///   `none` (if the corresponding input label length was `0pt` or no suitable
-///   location could be found) or a dictionary containing the label's `x` and 
-///   `y` coordinates and its `angle`.
+/// - `labels`: An array of label arrays for each level. Each label array
+///   contains dictionaries with the label's `x`, `y`, and `angle`; it is empty
+///   if the corresponding input label length was `0pt` or no suitable
+///   location could be found.
 /// 
 /// -> dictionary
 #let contour(
@@ -49,7 +49,12 @@
   /// accommodate for the labels. Array elements should be of type `length` with
   /// only a pt part. For lengths that are equal to `0pt`, no label is assumed.
   /// -> none | array
-  label-lengths: none
+  label-lengths: none,
+
+  /// If true, attempts to place one label on every contour line for each level.
+  /// Otherwise, places at most one label per level.
+  /// -> bool
+  label-every-line: false
 
 ) = {
   if type(z) == function {
@@ -77,15 +82,16 @@
     y.map(float),
     z.flatten().map(float),
     levels.map(float),
-    label-lengths.map(length => length.pt())
+    label-lengths.map(length => length.pt()),
+    label-every-line
   ))
   let result = cbor(komet-plugin.contour(data))
-  let labels = result.labels.map(label =>
-    if label.len() == 0 {
-      none
-    } else {
-      (x: label.at(0), y: label.at(1), angle: label.at(2) * 1deg)
-    }
+  let labels = result.labels.map(level-labels =>
+    level-labels.map(label => (
+      x: label.at(0),
+      y: label.at(1),
+      angle: label.at(2) * 1deg
+    ))
   )
   (contours: result.contours, labels: labels)
 }

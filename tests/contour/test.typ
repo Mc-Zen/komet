@@ -30,7 +30,7 @@
         ((1.0, 1.0), (1.0, 1.0)),
       ),
     ),
-    labels: (none, none),
+    labels: ((), ()),
   ),
 )
 
@@ -41,4 +41,14 @@
   (0, 1),
   label-lengths: (1pt, 1pt),
 )
-#assert.eq(labelled.labels.map(label => label != none), (true, true))
+#assert.eq(labelled.labels.map(label => label.len() > 0), (true, true))
+
+#let labelled-every-line = contour(
+  (0, 2, 4),
+  (0, 4),
+  (x, y) => (x - 1) * (x - 3),
+  0,
+  label-lengths: (0.5pt,),
+  label-every-line: true,
+)
+#assert.eq(labelled-every-line.labels.map(label => label.len()), (2,))

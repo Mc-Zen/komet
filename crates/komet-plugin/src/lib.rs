@@ -12,8 +12,8 @@ pub fn contour(input: &[u8]) -> Result<Vec<u8>, String> {
 
     match decoder.pull().unwrap() {
         Header::Array(Some(len)) => {
-            if len != 5 {
-                return Err(String::from("Expected array of 5 elements, got more"));
+            if len != 6 {
+                return Err(String::from("Expected array of 6 elements, got more"));
             }
 
             let x = match decoder.pull().unwrap() {
@@ -41,7 +41,13 @@ pub fn contour(input: &[u8]) -> Result<Vec<u8>, String> {
                 _ => return Err(String::from("Bad input")),
             };
 
-            let contours = komet::contour(&x, &y, &z, &levels, &label_lengths);
+            let label_every_line = match decoder.pull().unwrap() {
+                Header::Simple(20) => false,
+                Header::Simple(21) => true,
+                _ => return Err(String::from("Bad input")),
+            };
+
+            let contours = komet::contour(&x, &y, &z, &levels, &label_lengths, label_every_line);
 
             let mut output = Vec::<u8>::new();
             let mut encoder = Encoder::from(&mut output);
@@ -69,13 +75,14 @@ pub fn contour(input: &[u8]) -> Result<Vec<u8>, String> {
             encoder.text("labels", None).unwrap();
             encoder.push(Header::Array(Some(contours.len()))).unwrap();
             for contour in contours {
-                if let Some(label) = contour.label {
+                encoder
+                    .push(Header::Array(Some(contour.labels.len())))
+                    .unwrap();
+                for label in contour.labels {
                     encoder.push(Header::Array(Some(3))).unwrap();
                     encoder.push(Header::Float(label.x)).unwrap();
                     encoder.push(Header::Float(label.y)).unwrap();
                     encoder.push(Header::Float(label.angle)).unwrap();
-                } else {
-                    encoder.push(Header::Array(Some(0))).unwrap();
                 }
             }
 

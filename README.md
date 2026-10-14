@@ -160,6 +160,11 @@ The return value is an array with
    than one disjoint curve per level), 
 3. where each contour line comprises a set of vertices `(x, y)` making up the curve. 
 
+When `label-lengths` is provided, `labels` contains an array of label positions
+for each level. Each label position is a dictionary with `x`, `y`, and `angle`
+fields. By default, at most one label is placed per level. Set
+`label-every-line: true` to attempt one label on every disjoint contour line.
+
 
 ---
 ### Thomas Algorithm
