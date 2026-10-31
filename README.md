@@ -139,7 +139,10 @@ Computes the inverse Fourier transform of an array of real (`float`) or complex 
     x: array,
     y: array,
     z: array,
-    levels: int | float | array
+    levels: int | float | array,
+    label-lengths: none | array = none,
+    label-every-line: bool = false,
+    label-positions: none | array = none
 )
 ```
 Generates contours from intersecting a function on a 2d rectangular mesh
@@ -159,6 +162,29 @@ The return value is an array with
 2. where each contour consists of an array of contour lines (there can be more 
    than one disjoint curve per level), 
 3. where each contour line comprises a set of vertices `(x, y)` making up the curve. 
+
+The returned `labels` array contains a list of label positions for each level.
+Each label position is a dictionary with `x`, `y`, and `angle` fields. Set
+`label-lengths` to specify the length of the gap cut from the contour for each
+label. By default, at most one label is placed per level. Set
+`label-every-line: true` to attempt one label on every disjoint contour line.
+
+Use `label-positions` to place labels manually. It accepts an array of `(x, y)`
+coordinate pairs; each point is assigned to the closest contour line across
+all levels, and automatic placement is disabled. A matching `label-lengths`
+entry controls the gap cut from that contour. If `label-lengths` is omitted or
+the matched length is `0pt`, the label position is returned without cutting a
+gap. For example:
+```typ
+#komet.contour(
+  x,
+  y,
+  z,
+  levels,
+  label-lengths: (20pt,),
+  label-positions: ((1.5, 2.0), (3.0, 4.0)),
+)
+```
 
 
 ---
