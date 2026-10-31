@@ -47,14 +47,22 @@
   /// array with the same length as @contour.levels. If given, optimal positions
   /// and angles for labels are computed and the output curves will be split to
   /// accommodate for the labels. Array elements should be of type `length` with
-  /// only a pt part. For lengths that are equal to `0pt`, no label is assumed.
+  /// only a pt part. For automatic placement, lengths that are equal to `0pt`
+  /// disable labels. Manual positions still return labels, but do not split the
+  /// curves when the matched length is `0pt`.
   /// -> none | array
   label-lengths: none,
 
   /// If true, attempts to place one label on every contour line for each level.
   /// Otherwise, places at most one label per level.
   /// -> bool
-  label-every-line: false
+  label-every-line: false,
+
+  /// Optional array of `(x, y)` coordinates to label. Each point is assigned
+  /// to its closest contour line across all levels. When given, automatic
+  /// label placement is disabled.
+  /// -> none | array
+  label-positions: none
 
 ) = {
   if type(z) == function {
@@ -72,6 +80,17 @@
     label-lengths.len() == levels.len(),
     message: "The number of label-lengths does not match the number of levels"
   )
+  let has-label-positions = label-positions != none
+  if label-positions == none {
+    label-positions = ()
+  } else {
+    for position in label-positions {
+      assert(
+        position.len() == 2,
+        message: "Each label position must contain an x and y coordinate"
+      )
+    }
+  }
   let flattened-z = z.flatten()
   assert(
     x.len() * y.len() == flattened-z.len()
@@ -83,7 +102,9 @@
     z.flatten().map(float),
     levels.map(float),
     label-lengths.map(length => length.pt()),
-    label-every-line
+    label-every-line,
+    has-label-positions,
+    label-positions.map(position => position.map(float))
   ))
   let result = cbor(komet-plugin.contour(data))
   let labels = result.labels.map(level-labels =>

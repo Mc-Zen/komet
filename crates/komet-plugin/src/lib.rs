@@ -12,8 +12,8 @@ pub fn contour(input: &[u8]) -> Result<Vec<u8>, String> {
 
     match decoder.pull().unwrap() {
         Header::Array(Some(len)) => {
-            if len != 6 {
-                return Err(String::from("Expected array of 6 elements, got more"));
+            if len != 8 {
+                return Err(String::from("Expected array of 8 elements, got more"));
             }
 
             let x = match decoder.pull().unwrap() {
@@ -47,7 +47,43 @@ pub fn contour(input: &[u8]) -> Result<Vec<u8>, String> {
                 _ => return Err(String::from("Bad input")),
             };
 
-            let contours = komet::contour(&x, &y, &z, &levels, &label_lengths, label_every_line);
+            let has_label_positions = match decoder.pull().unwrap() {
+                Header::Simple(20) => false,
+                Header::Simple(21) => true,
+                _ => return Err(String::from("Bad input")),
+            };
+
+            let label_positions = match decoder.pull().unwrap() {
+                Header::Array(Some(position_count)) => {
+                    let mut positions = Vec::with_capacity(position_count);
+                    for _ in 0..position_count {
+                        match decoder.pull().unwrap() {
+                            Header::Array(Some(2)) => {
+                                let coordinates = read::read_float_array(&mut decoder, 2)?;
+                                positions.push((coordinates[0], coordinates[1]));
+                            }
+                            _ => {
+                                return Err(String::from(
+                                    "Each label position must contain two coordinates",
+                                ))
+                            }
+                        }
+                    }
+                    positions
+                }
+                _ => return Err(String::from("Bad label positions")),
+            };
+
+            let label_positions = has_label_positions.then_some(label_positions.as_slice());
+            let contours = komet::contour_with_label_positions(
+                &x,
+                &y,
+                &z,
+                &levels,
+                &label_lengths,
+                label_every_line,
+                label_positions,
+            );
 
             let mut output = Vec::<u8>::new();
             let mut encoder = Encoder::from(&mut output);

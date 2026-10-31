@@ -43,6 +43,15 @@
 )
 #assert.eq(labelled.labels.map(label => label.len() > 0), (true, true))
 
+#let manually-labelled = contour(
+  range(4),
+  range(4),
+  (x, y) => x * y,
+  (0, 1),
+  label-positions: ((1., 1.),),
+)
+#assert.eq(manually-labelled.labels.map(label => label.len()), (0, 1))
+
 #let labelled-every-line = contour(
   (0, 2, 4),
   (0, 4),
