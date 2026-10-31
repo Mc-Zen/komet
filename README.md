@@ -205,6 +205,10 @@ The expected format of the matrix is an array of arrays, in row-major order.
 
 ## Changelog
 
+### 0.3.0
+- Added contour label placement controls for manual positions, multi-label output, and collision-aware placement.
+- Added support for custom contour label gaps and per-line labeling.
+
 ### 0.2.0
 - Added `kde` function (thanks to @koole). 
 - Fixed a bug with `histogram` where the last value was not binned. 
